@@ -6,7 +6,7 @@ const { jwtLifetimeSeconds } = require('../config/security');
 const cookieOptions = () => ({
   httpOnly: true,
   secure: process.env.COOKIE_SECURE === 'true',
-  sameSite: 'lax',
+  sameSite: process.env.COOKIE_SAME_SITE || 'lax',
   // The same session protects doctors, patients, and dashboard routes too.
   path: '/api/v1',
   maxAge: jwtLifetimeSeconds(process.env.JWT_EXPIRES_IN || '1d') * 1000,

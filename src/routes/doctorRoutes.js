@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { body, param } = require('express-validator');
-const { listDoctors, createDoctor, getDoctor, listDoctorPatients } = require('../controllers/doctorController');
+const { listDoctors, createDoctor, getDoctor, listDoctorPatients, listDoctorSpecializations } = require('../controllers/doctorController');
 const { createPatient } = require('../controllers/patientController');
 const { validateRequest, doctorQueryValidators, patientQueryValidators } = require('../utils/query');
 
@@ -21,6 +21,7 @@ const patientFields = [
 ];
 
 router.get('/', doctorQueryValidators(), validateRequest, listDoctors);
+router.get('/filters', listDoctorSpecializations);
 router.post('/', doctorFields, validateRequest, createDoctor);
 router.get('/:id', param('id').isMongoId(), validateRequest, getDoctor);
 router.get('/:id/patients', param('id').isMongoId(), ...patientQueryValidators(), validateRequest, listDoctorPatients);

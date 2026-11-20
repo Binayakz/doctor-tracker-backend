@@ -10,7 +10,23 @@ const listDoctors = asyncHandler(async (req, res) => {
   if (req.query.specialization) filter.specialization = req.query.specialization;
   if (req.query.search?.trim()) filter.$text = { $search: req.query.search.trim() };
   const [items, total] = await Promise.all([
-    Doctor.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+    Doctor.aggregate([
+      { $match: filter },
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      { $lookup: {
+        from: 'patients',
+        let: { doctorId: '$_id' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$doctor', '$$doctorId'] } } },
+          { $count: 'count' },
+        ],
+        as: 'patientStats',
+      } },
+      { $addFields: { patientCount: { $ifNull: [{ $arrayElemAt: ['$patientStats.count', 0] }, 0] } } },
+      { $project: { patientStats: 0 } },
+    ]),
     Doctor.countDocuments(filter),
   ]);
   res.json({ success: true, data: { doctors: items }, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
@@ -27,6 +43,11 @@ const getDoctor = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { doctor } });
 });
 
+const listDoctorSpecializations = asyncHandler(async (_req, res) => {
+  const specializations = await Doctor.distinct('specialization');
+  res.json({ success: true, data: { specializations: specializations.sort((a, b) => a.localeCompare(b)) } });
+});
+
 const listDoctorPatients = asyncHandler(async (req, res) => {
   const doctorExists = await Doctor.exists({ _id: req.params.id });
   if (!doctorExists) return res.status(404).json({ success: false, message: 'Doctor not found' });
@@ -41,4 +62,4 @@ const listDoctorPatients = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { patients: items }, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
 });
 
-module.exports = { listDoctors, createDoctor, getDoctor, listDoctorPatients };
+module.exports = { listDoctors, createDoctor, getDoctor, listDoctorPatients, listDoctorSpecializations };

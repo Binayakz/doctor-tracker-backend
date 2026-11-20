@@ -22,7 +22,7 @@ Doctor Tracker is a secure administrative app for managing doctors, their patien
 
 4. Check `http://localhost:4000/health`. With `SEED_ADMIN=true`, startup creates the configured administrator only if the email does not already exist. Keep `.env` private and never commit credentials.
 
-The checked-in `.env.example` contains all supported settings. `AUTO_CREATE_INDEXES` defaults to enabled outside production. In production, set `NODE_ENV=production`, `COOKIE_SECURE=true`, a strong secret, and an exact HTTPS frontend origin. A free app host and MongoDB Atlas M0 can support a demo, subject to provider limits, cold starts, and current plan availability.
+The checked-in `.env.example` contains all supported settings. `AUTO_CREATE_INDEXES` defaults to enabled outside production. In production, set `NODE_ENV=production`, `COOKIE_SECURE=true`, a strong secret, and an exact HTTPS frontend origin. If the frontend and API are on different sites (for example, separate default Vercel and Render hostnames), also set `COOKIE_SAME_SITE=none`; same-site deployments can retain `lax`. A free app host and MongoDB Atlas M0 can support a demo, subject to provider limits, cold starts, and current plan availability.
 
 ## Architecture
 
@@ -49,6 +49,7 @@ Base URL: `http://localhost:4000/api/v1`. Success responses use `{ "success": tr
 | GET | `/auth/me` | Current admin profile |
 | GET | `/dashboard` | Totals, up to ten doctors by patient count, and 30 UTC dates of new record counts |
 | GET | `/doctors?page=1&limit=10&search=&specialization=&from=YYYY-MM-DD&to=YYYY-MM-DD` | Search, filter, and paginate doctors |
+| GET | `/doctors/filters` | Available doctor specializations |
 | POST | `/doctors` | Create doctor: `name`, `specialization`, `hospital`, `phone`, `email` |
 | GET | `/doctors/:id` | Doctor details |
 | GET | `/doctors/:id/patients?page=1&limit=10&search=&condition=&from=&to=` | Paginated patient list for a doctor |
@@ -86,10 +87,10 @@ Cookie: doctor_tracker_token=<browser-managed-session>
 {"name":"Jordan Lee","specialization":"Cardiology","hospital":"City Hospital","phone":"+15551234567","email":"jordan@example.com"}
 ```
 
-Example paginated list response:
+Example paginated list response (doctor list results include a per-doctor `patientCount`):
 
 ```json
-{"success":true,"data":{"doctors":[{"_id":"665f...","name":"Jordan Lee","specialization":"Cardiology","hospital":"City Hospital","phone":"+15551234567","email":"jordan@example.com"}]},"pagination":{"page":1,"limit":10,"total":1,"pages":1}}
+{"success":true,"data":{"doctors":[{"_id":"665f...","name":"Jordan Lee","specialization":"Cardiology","hospital":"City Hospital","phone":"+15551234567","email":"jordan@example.com","patientCount":4}]},"pagination":{"page":1,"limit":10,"total":1,"pages":1}}
 ```
 
 Date filters are inclusive UTC calendar dates and apply to `createdAt`. `from` and `to` must be real `YYYY-MM-DD` dates, and `to` cannot precede `from`. Search is a MongoDB text search over indexed name and relevant text fields; it matches words/phrases rather than arbitrary substrings and is limited to 100 characters. Page size is limited to 100; responses include `{ page, limit, total, pages }` pagination metadata.
@@ -117,7 +118,7 @@ The script creates missing schema indexes and does not drop existing indexes. Re
 - Admin accounts are bootstrapped from environment variables; there is no public registration route.
 - Keep secrets out of frontend variables with a public prefix.
 - Patient data is sensitive. Use HTTPS, least-privilege database credentials, restricted database network access, and synthetic data for demos. This starter is not a compliance certification.
-- Credentialed CORS does not allow wildcard origins. Same-site cookie defaults assume the frontend and API are deployed under the same site. Cross-site deployment requires deliberate cookie changes (typically `SameSite=None; Secure`) while retaining origin protection.
+- Credentialed CORS does not allow wildcard origins. `COOKIE_SAME_SITE` defaults to `lax`; when frontend and API use different sites, set `COOKIE_SAME_SITE=none` together with `COOKIE_SECURE=true` so browsers send the session cookie on cross-site API requests. Keep `CLIENT_ORIGIN` set to the exact frontend origin and retain origin protection.
 
 ## Frontend integration
 

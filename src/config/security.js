@@ -17,6 +17,13 @@ function validateSecurityConfig(env = process.env) {
   if (env.NODE_ENV === 'production' && env.COOKIE_SECURE !== 'true') {
     throw new Error('COOKIE_SECURE=true is required in production');
   }
+  const sameSite = env.COOKIE_SAME_SITE || 'lax';
+  if (!['lax', 'strict', 'none'].includes(sameSite)) {
+    throw new Error('COOKIE_SAME_SITE must be lax, strict, or none');
+  }
+  if (sameSite === 'none' && env.COOKIE_SECURE !== 'true') {
+    throw new Error('COOKIE_SECURE=true is required when COOKIE_SAME_SITE=none');
+  }
 }
 
 module.exports = { jwtLifetimeSeconds, validateSecurityConfig };

@@ -14,7 +14,8 @@ test('REST API auth, validation, records, filtering, analytics, and logout', {
   process.env.JWT_SECRET = 'integration-test-secret-with-more-than-32-bytes';
   process.env.JWT_EXPIRES_IN = '1h';
   process.env.CLIENT_ORIGIN = 'http://localhost:3000';
-  process.env.COOKIE_SECURE = 'false';
+  process.env.COOKIE_SECURE = 'true';
+  process.env.COOKIE_SAME_SITE = 'none';
 
   const mongoose = require('mongoose');
   const bcrypt = require('bcryptjs');
@@ -58,6 +59,8 @@ test('REST API auth, validation, records, filtering, analytics, and logout', {
     result = await call('/api/v1/auth/login', { method: 'POST', body: { email, password: 'Test-Password-1234' } });
     assert.equal(result.response.status, 200);
     assert.match(result.response.headers.get('set-cookie'), /HttpOnly/);
+    assert.match(result.response.headers.get('set-cookie'), /SameSite=None/);
+    assert.match(result.response.headers.get('set-cookie'), /Secure/);
     assert.match(result.response.headers.get('set-cookie'), /Path=\/api\/v1/);
     const cookie = result.response.headers.get('set-cookie').split(';')[0];
 
@@ -72,7 +75,12 @@ test('REST API auth, validation, records, filtering, analytics, and logout', {
     result = await call(`/api/v1/doctors?search=${encodeURIComponent(unique)}&specialization=Cardiology&limit=1`, { cookie });
     assert.equal(result.response.status, 200);
     assert.equal(result.json.pagination.total, 1);
+    assert.equal(result.json.data.doctors[0].patientCount, 0);
     assert.equal(result.response.headers.get('cache-control'), 'no-store');
+
+    result = await call('/api/v1/doctors/filters', { cookie });
+    assert.equal(result.response.status, 200);
+    assert.ok(Array.isArray(result.json.data.specializations));
 
     result = await call('/api/v1/doctors?page=1&limit=101', { cookie });
     assert.equal(result.response.status, 400);
@@ -84,6 +92,9 @@ test('REST API auth, validation, records, filtering, analytics, and logout', {
     result = await call(`/api/v1/doctors/${doctorId}/patients`, { method: 'POST', cookie, origin: process.env.CLIENT_ORIGIN, body: { name: `Patient ${unique}`, age: 37, gender: 'female', condition: 'Migraine' } });
     assert.equal(result.response.status, 201);
     patientId = result.json.data.patient._id;
+
+    result = await call(`/api/v1/doctors?search=${encodeURIComponent(unique)}&limit=1`, { cookie });
+    assert.equal(result.json.data.doctors[0].patientCount, 1);
 
     result = await call(`/api/v1/patients?search=${encodeURIComponent(unique)}&condition=Migraine`, { cookie });
     assert.equal(result.response.status, 200);
